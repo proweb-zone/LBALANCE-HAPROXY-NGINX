@@ -112,8 +112,8 @@ services:
       DURATION: "60"
     networks:
       - app-network
-    depends_on:
-      - nginx
+    # depends_on:
+    #   - nginx
 
 volumes:
   postgres-master-data:
