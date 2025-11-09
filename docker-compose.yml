@@ -1,6 +1,9 @@
+version: "3.8"
+
 services:
   # PostgreSQL Master
   postgres-master:
+    container_name: postgres_master
     image: postgres:16.1-alpine3.18
     environment:
       POSTGRES_USER: user
@@ -16,6 +19,7 @@ services:
 
   # PostgreSQL Slave 1
   postgres-slave1:
+    container_name: postgres_slave
     image: postgres:16.1-alpine3.18
     environment:
       POSTGRES_USER: user
@@ -31,6 +35,7 @@ services:
 
   # PostgreSQL Slave 2
   postgres-slave2:
+    container_name: postgres_slave2
     image: postgres:16.1-alpine3.18
     environment:
       POSTGRES_USER: user
@@ -46,11 +51,13 @@ services:
 
   # HAProxy для балансировки PostgreSQL
   haproxy:
+    container_name: haproxy
     image: haproxy:2.4
     volumes:
-      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:
       - "5433:5433"
+      - "8404:8404" # Для статистики
     networks:
       - app-network
     depends_on:
@@ -60,7 +67,10 @@ services:
 
   # Golang приложение 1
   app1:
-    build: ./app
+    container_name: app1
+    build: ./ms_app
+    ports:
+      - "3025:3025"
     environment:
       DATABASE_URL: "postgres://user:password@haproxy:5433/testdb?sslmode=disable"
     networks:
@@ -70,7 +80,10 @@ services:
 
   # Golang приложение 2
   app2:
-    build: ./golang
+    container_name: app2
+    build: ./ms_app
+    ports:
+      - "3026:3025"
     environment:
       DATABASE_URL: "postgres://user:password@haproxy:5433/testdb?sslmode=disable"
     networks:
@@ -80,7 +93,10 @@ services:
 
   # Golang приложение 3
   app3:
-    build: ./golang
+    container_name: app3
+    build: ./ms_app
+    ports:
+      - "3027:3025"
     environment:
       DATABASE_URL: "postgres://user:password@haproxy:5433/testdb?sslmode=disable"
     networks:
@@ -90,9 +106,10 @@ services:
 
   # Nginx для балансировки приложений
   nginx:
+    container_name: nginx
     image: nginx:1.21
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
       - "8080:80"
     networks:
@@ -103,17 +120,17 @@ services:
       - app3
 
   # Генератор нагрузки (Go приложение)
-  load-generator:
-    build: ./golang
-    command: ["./app", "load"]
-    environment:
-      TARGET_URL: "http://nginx:80"
-      REQUESTS_PER_SECOND: "100"
-      DURATION: "60"
-    networks:
-      - app-network
-    # depends_on:
-    #   - nginx
+  # load-generator:
+  #   container_name: load_generator
+  #   build: ./ms_app
+  #   environment:
+  #     TARGET_URL: "http://nginx:80"
+  #     REQUESTS_PER_SECOND: "100"
+  #     DURATION: "60"
+  #   networks:
+  #     - app-network
+  #   depends_on:
+  #     - nginx
 
 volumes:
   postgres-master-data:
